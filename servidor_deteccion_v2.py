@@ -16,6 +16,7 @@ objeto en movimiento. NO identifica especie. No envia alertas locales ni remotas
 """
 import argparse
 import csv
+import glob
 import os
 import re
 import threading
@@ -26,6 +27,11 @@ from datetime import datetime
 import cv2
 import numpy as np
 from flask import Flask, Response, abort, jsonify, request, send_from_directory
+
+try:
+    import serial   # pyserial: solo hace falta para la camara por cable USB
+except ImportError:
+    serial = None
 
 AREA_MINIMA_PX = 150
 AREA_MAXIMA_PX = 8000
@@ -80,9 +86,16 @@ class DetectorZona:
         return anotado, eventos
 
 
+def buscar_puerto_usb():
+    """Puerto serie de la placa conectada por cable (macOS), o None."""
+    puertos = sorted(glob.glob("/dev/cu.usbmodem*") + glob.glob("/dev/cu.usbserial*"))
+    return puertos[0] if puertos else None
+
+
 def crear_app(directorio_logs="logs", area_min=AREA_MINIMA_PX, area_max=AREA_MAXIMA_PX,
-              min_frames_fondo=MIN_FRAMES_FONDO, guardar_rafagas=None):
+              min_frames_fondo=MIN_FRAMES_FONDO, guardar_rafagas=None, puerto_serie=None):
     dir_snapshots = os.path.join(directorio_logs, "snapshots")
+    dir_fotos_usb = os.path.join(directorio_logs, "fotos_usb")
     archivo_csv = os.path.join(directorio_logs, "eventos.csv")
     os.makedirs(dir_snapshots, exist_ok=True)
     if not os.path.exists(archivo_csv):
@@ -138,6 +151,50 @@ def crear_app(directorio_logs="logs", area_min=AREA_MINIMA_PX, area_max=AREA_MAX
                               "hora": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                               "alerta": bool(eventos), "eventos": eventos, "snapshot": snapshot,
                               "origen": origen, "n_fotos": len(crudos), "ancho": ancho, "alto": alto, "_fotos": crudos})
+
+    lock_usb = threading.Lock()
+
+    def foto_por_usb(timeout=15):
+        """Pide UNA foto a la placa por el cable (orden FOTO) y devuelve los bytes del JPEG.
+        Firmware: firmware/prueba_camara_usb. La placa nunca toma fotos por su cuenta."""
+        if serial is None:
+            raise RuntimeError("falta instalar pyserial (pip install pyserial)")
+        puerto = puerto_serie or buscar_puerto_usb()
+        if not puerto:
+            raise RuntimeError("no hay ninguna placa conectada por USB")
+        with serial.Serial(puerto, 115200, timeout=1) as s:
+            s.reset_input_buffer()
+            s.write(b"FOTO\n")
+            fin = time.time() + timeout
+            while time.time() < fin:
+                linea = s.readline().decode("utf-8", "replace").strip()
+                if "camara lista" in linea:
+                    s.write(b"FOTO\n")       # la placa se reinicio al abrir el puerto: repetir la orden
+                elif linea.startswith("FOTO_ERROR"):
+                    raise RuntimeError(linea)
+                elif linea.startswith("FOTO_INICIO"):
+                    n = int(linea.split()[1])
+                    datos = s.read(n)
+                    if len(datos) != n or datos[:2] != b"\xff\xd8":
+                        raise RuntimeError(f"foto incompleta ({len(datos)}/{n} bytes)")
+                    return datos
+        raise RuntimeError("la placa no respondio (revise el cable y que tenga el firmware de prueba USB)")
+
+    @app.route("/api/usb/foto", methods=["POST"])
+    def api_usb_foto():
+        with lock_usb:
+            try:
+                crudo = foto_por_usb()
+            except Exception as e:
+                return jsonify({"ok": False, "error": str(e)}), 503
+        frame = cv2.imdecode(np.frombuffer(crudo, np.uint8), cv2.IMREAD_COLOR)
+        if frame is None:
+            return jsonify({"ok": False, "error": "la imagen recibida no es valida"}), 502
+        os.makedirs(dir_fotos_usb, exist_ok=True)
+        with open(os.path.join(dir_fotos_usb, datetime.now().strftime("%Y%m%d_%H%M%S") + ".jpg"), "wb") as f:
+            f.write(crudo)
+        guardar_en_historial("Cable-USB", [frame], [crudo], "foto_usb", [], None, "cable USB")
+        return jsonify({"ok": True, "bytes": len(crudo)})
 
     @app.route("/health")
     def health():
@@ -231,7 +288,9 @@ def crear_app(directorio_logs="logs", area_min=AREA_MINIMA_PX, area_max=AREA_MAX
         with lock_global:
             zonas = {z: {"frames_vistos": d.frames_vistos, "listo": d.frames_vistos >= min_frames_fondo}
                      for z, d in detectores.items()}
+        puerto_usb = puerto_serie or buscar_puerto_usb()
         return jsonify({"nodo": info_nodo, "totales": tot, "segundos_desde_ultima": desde, "zonas": zonas, "rafagas": rafagas,
+                        "usb": {"disponible": serial is not None and bool(puerto_usb), "puerto": puerto_usb},
                         "eventos": leer_eventos(15),
                         "parametros": {"area_min": area_min, "area_max": area_max,
                                        "min_frames_fondo": min_frames_fondo}})
@@ -256,6 +315,8 @@ if __name__ == "__main__":
     parser.add_argument("--puerto", type=int, default=5000)
     parser.add_argument("--logs", default="logs")
     parser.add_argument("--guardar-rafagas", default=None, help="carpeta donde guardar las fotos recibidas")
+    parser.add_argument("--puerto-serie", default=None, help="puerto de la camara por cable USB (por defecto se detecta solo)")
     args = parser.parse_args()
     print(f"Servidor v2 escuchando en http://0.0.0.0:{args.puerto}/  (POST /upload)")
-    crear_app(args.logs, guardar_rafagas=args.guardar_rafagas).run(host="0.0.0.0", port=args.puerto, debug=False)
+    crear_app(args.logs, guardar_rafagas=args.guardar_rafagas, puerto_serie=args.puerto_serie).run(
+        host="0.0.0.0", port=args.puerto, debug=False)

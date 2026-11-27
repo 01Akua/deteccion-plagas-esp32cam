@@ -67,6 +67,8 @@
     <h2>Control del nodo</h2>
     <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:center">
       <button class="boton grande" id="btnFoto" onclick="tomarFoto()">Tomar foto ahora</button>
+      <div><button class="boton grande" id="btnUsb" onclick="tomarFotoUsb()">Tomar foto por cable USB</button>
+        <div id="usbMsg" style="color:var(--tenue);font-size:12px;margin-top:4px">Sin WiFi: la cámara conectada al computador por cable</div></div>
       <label><input type="checkbox" id="auto" onchange="guardarConfig()"> Disparo automático por movimiento</label>
       <label>Sensibilidad (celdas que deben cambiar): <input type="number" id="celdas" min="1" max="2000" style="width:70px" onchange="guardarConfig()"></label>
       <div style="flex:1;min-width:220px">
@@ -95,7 +97,9 @@
 let estado = null, selId = null, selFoto = null;
 const $ = id => document.getElementById(id);
 const hora = t => t ? t.slice(11, 19) : '—';
+let usbOcupado = false;
 function tag(b) {
+  if (b.estado === 'foto_usb') return '<span class="etiqueta e-ok">foto por cable USB</span>';
   if (b.estado === 'calentando') return '<span class="etiqueta e-calentando">calentando</span>';
   return b.alerta ? '<span class="etiqueta e-alerta">alerta</span>' : '<span class="etiqueta e-ok">sin alerta</span>';
 }
@@ -112,8 +116,10 @@ function pintar() {
   $('kArea').textContent = e.parametros.area_min + '–' + e.parametros.area_max + ' px';
   $('kFondo').textContent = 'área válida · ' + e.parametros.min_frames_fondo + ' cuadros de calentamiento';
   const sc = e.nodo.segundos_desde_consulta, enLinea = sc !== null && sc < 10;
-  $('punto').className = 'punto ' + (sc === null ? '' : (enLinea ? 'on' : 'off'));
-  $('estadoNodo').textContent = sc === null ? 'Esperando al nodo…'
+  const usbOk = !!(e.usb && e.usb.disponible);
+  $('btnUsb').disabled = !usbOk || usbOcupado;
+  $('punto').className = 'punto ' + (sc === null ? (usbOk ? 'on' : '') : (enLinea ? 'on' : 'off'));
+  $('estadoNodo').textContent = sc === null ? (usbOk ? 'Cámara conectada por cable USB (sin WiFi)' : 'Esperando al nodo…')
     : (enLinea ? 'Nodo conectado' : 'Nodo sin señal (hace ' + dur(sc) + ')')
       + (e.segundos_desde_ultima === null ? '' : ' · última ráfaga hace ' + dur(e.segundos_desde_ultima));
   const n = e.nodo, activo = document.activeElement;
@@ -146,10 +152,12 @@ function pintar() {
     });
     $('tira').innerHTML = Array.from({length: r.n_fotos}, (_, i) =>
       `<img src="/frames/${r.id}/${i}.jpg" class="${i === selFoto ? 'sel' : ''}" onclick="elegirFoto(${i})">`).join('');
-    $('metaIzq').innerHTML = `${hora(r.hora)} · ${r.origen || ''} · ${tag(r)} · la última foto es la que se evalúa`;
+    $('metaIzq').innerHTML = r.estado === 'foto_usb'
+      ? `${hora(r.hora)} · ${r.origen || ''} · ${tag(r)} · foto tomada a pedido, sin análisis de movimiento`
+      : `${hora(r.hora)} · ${r.origen || ''} · ${tag(r)} · la última foto es la que se evalúa`;
     $('detecciones').innerHTML = r.eventos.length ? '<table><tr><th>#</th><th>Área</th><th>Posición</th></tr>' +
       r.eventos.map((ev, i) => `<tr><td>${i + 1}</td><td>${ev.area_px} px</td><td>${ev.bbox[0]}, ${ev.bbox[1]}</td></tr>`).join('') + '</table>'
-      : `<div class="vacio">${r.estado === 'calentando' ? 'La zona aún está aprendiendo el fondo.' : 'Sin objetos dentro del rango de tamaño.'}</div>`;
+      : `<div class="vacio">${r.estado === 'foto_usb' ? 'Foto individual por cable: no se analiza movimiento.' : r.estado === 'calentando' ? 'La zona aún está aprendiendo el fondo.' : 'Sin objetos dentro del rango de tamaño.'}</div>`;
   } else {
     $('metaIzq').textContent = 'Aún no llegan imágenes. Dispare el nodo (botón BOOT o comando FOTO).';
   }
@@ -162,6 +170,17 @@ function pintar() {
     : '<div class="vacio">Sin alertas registradas</div>';
 }
 async function tomarFoto() { $('btnFoto').disabled = true; await fetch('/api/disparar', {method: 'POST'}); actualizar(); }
+async function tomarFotoUsb() {
+  usbOcupado = true; $('btnUsb').disabled = true; $('btnUsb').textContent = 'Tomando foto…';
+  $('usbMsg').style.color = 'var(--tenue)'; $('usbMsg').textContent = 'Pidiendo la foto a la cámara por el cable…';
+  try {
+    const d = await (await fetch('/api/usb/foto', {method: 'POST'})).json();
+    $('usbMsg').style.color = d.ok ? 'var(--verde)' : 'var(--rojo)';
+    $('usbMsg').textContent = d.ok ? 'Foto recibida por cable (' + Math.round(d.bytes / 1024) + ' KB)' : 'No se pudo: ' + d.error;
+    if (d.ok) $('seguir').checked = true;
+  } catch (_) { $('usbMsg').style.color = 'var(--rojo)'; $('usbMsg').textContent = 'Sin conexión con el servidor'; }
+  usbOcupado = false; $('btnUsb').textContent = 'Tomar foto por cable USB'; actualizar();
+}
 async function guardarConfig() { await fetch('/api/config', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({auto: $('auto').checked, celdas: +$('celdas').value})}); }
 function dur(s) { return s < 90 ? Math.round(s) + ' s' : Math.round(s / 60) + ' min'; }
 function elegirRafaga(id) { selId = id; selFoto = null; $('seguir').checked = false; pintar(); }

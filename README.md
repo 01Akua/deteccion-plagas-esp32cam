@@ -35,4 +35,6 @@ Abrir http://localhost:5050/. Pruebas: `python -m pytest -v test_servidor.py`.
 2. Configurar la red por USB: `python firmware/nodo_plagas/configurar_nodo.py` (pide la clave sin mostrarla; queda en la memoria flash de la placa, no en el código).
 3. La placa consulta al servidor cada 2 s y envía 6 fotos por disparo.
 
+**Cámara por cable (sin WiFi):** con el firmware `firmware/prueba_camara_usb` cargado en la placa y conectada por USB, el panel muestra el botón **Tomar foto por cable USB**. El servidor le manda `FOTO` por el cable y la foto aparece en el visor (se guarda en `logs/fotos_usb/`). Requiere `pyserial`.
+
 El **disparo automático por movimiento viene apagado**: la cámara solo toma fotos con el botón "Tomar foto ahora" del panel, el botón BOOT de la placa o el comando serie `FOTO`. Se puede activar desde el panel.
