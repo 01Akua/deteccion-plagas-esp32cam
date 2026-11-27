@@ -1,5 +1,7 @@
 # Detección de actividad de plagas con ESP32-S3-CAM
 
+Trabajo realizado entre dos estudiantes del Politécnico Grancolombiano: **Luis Palacios** y **Juan Diego Pérez**.
+
 Proyecto de Sistemas Digitales y Ensambladores. Un nodo con cámara (GOOUUU ESP32-S3-CAM) manda ráfagas de fotos por WiFi a un servidor en Python que detecta actividad compatible con plagas por el tamaño del objeto en movimiento y la muestra en un panel web.
 
 ## Qué hace y qué no
