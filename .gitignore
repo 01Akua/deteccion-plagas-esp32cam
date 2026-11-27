@@ -1,0 +1,23 @@
+# Entorno y caches
+.venv/
+.pytest_cache/
+__pycache__/
+.DS_Store
+
+# Fotos reales de las pruebas y capturas del servidor (no se publican)
+evidencia_camara_real/**/*.jpg
+logs/snapshots/
+
+# Archivos intermedios de LaTeX
+informe/*.aux
+informe/*.log
+informe/*.fls
+informe/*.fdb_latexmk
+informe/*.toc
+informe/*.out
+
+# Documento de avances (puede contener fotos reales)
+Avances_Software_*.docx
+
+# Credenciales (el WiFi se guarda en la placa, nunca en el codigo)
+secrets.h

@@ -1,0 +1,26 @@
+Prueba de extremo a extremo - 2026-10-23, 13:57
+GOOUUU ESP32-S3-CAM v1.5 -> WiFi -> servidor v2 en el computador. Disparo por comando serie (FOTO).
+
+Salida serie de la placa:
+Nodo plagas - GOOUUU ESP32-S3-CAM v1.5
+[PSRAM] ok (8388608 bytes)
+[CAM] camara lista
+[WiFi] conectando....... ok, IP 192.168.0.30
+[DISPARO] capturando rafaga...
+  foto 1/6 (28632 bytes)
+  foto 2/6 (27880 bytes)
+  foto 3/6 (24599 bytes)
+  foto 4/6 (25709 bytes)
+  foto 5/6 (26602 bytes)
+  foto 6/6 (25295 bytes)
+[HTTP] servidor Luiss-MacBook-Air-2.local -> 192.168.0.26
+[HTTP] HTTP/1.1 200 OK
+[HTTP] respuesta: {"alerta":true,"estado":"evaluado","eventos":[{"area_px":171,"bbox":[340,395,16,22]},{"area_px":313,"bbox":[247,388,15,36]},{"area_px":152,"bbox":[223,259,18,16]},{"area_px":173,"bbox":[96,209,19,19]},{"area_px":165,"bbox":[77,180,22,12]},{"area_px":433,"bbox":[49,121,26,29]}],"snapshot":"2026-10-23_13-57-03-890_Zona-1.jpg"}
+
+Registro del servidor (eventos.csv):
+2026-10-23 13:57:03,Zona-1,433,6,2026-10-23_13-57-03-890_Zona-1.jpg
+
+Escena: monitor y botella, sin plagas. Las 6 regiones marcadas son falsos positivos
+(no se verifico la causa; probable ruido/vibracion en zonas de alto contraste).
+Contenido: rafaga_final/ = las 6 fotos originales (_1 a _6) + snapshot_servidor.jpg (imagen anotada).
+pruebas_previas/ = ráfagas de pruebas anteriores (24 fotos; escenas sin objetos y una con la camara en movimiento).

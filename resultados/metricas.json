@@ -1,0 +1,116 @@
+{
+  "v1_1zona": {
+    "TP": 61,
+    "FP": 3,
+    "FN": 2,
+    "TN": 84,
+    "precision": 0.953,
+    "recall": 0.968,
+    "tasa_falsa_alarma": 0.034,
+    "exactitud": 0.967,
+    "por_tipo": {
+      "vacia": {
+        "n": 29,
+        "alertas": 0
+      },
+      "mota": {
+        "n": 27,
+        "alertas": 2
+      },
+      "plaga": {
+        "n": 63,
+        "alertas": 61
+      },
+      "grande": {
+        "n": 11,
+        "alertas": 1
+      },
+      "luz": {
+        "n": 20,
+        "alertas": 0
+      }
+    }
+  },
+  "v1_2zonas": {
+    "TP": 117,
+    "FP": 11,
+    "FN": 2,
+    "TN": 170,
+    "precision": 0.914,
+    "recall": 0.983,
+    "tasa_falsa_alarma": 0.061,
+    "exactitud": 0.957,
+    "por_tipo": {
+      "vacia": {
+        "n": 66,
+        "alertas": 0
+      },
+      "mota": {
+        "n": 45,
+        "alertas": 5
+      },
+      "plaga": {
+        "n": 119,
+        "alertas": 117
+      },
+      "grande": {
+        "n": 22,
+        "alertas": 1
+      },
+      "luz": {
+        "n": 48,
+        "alertas": 5
+      }
+    }
+  },
+  "v2_2zonas": {
+    "TP": 119,
+    "FP": 1,
+    "FN": 0,
+    "TN": 180,
+    "precision": 0.992,
+    "recall": 1.0,
+    "tasa_falsa_alarma": 0.006,
+    "exactitud": 0.997,
+    "por_tipo": {
+      "vacia": {
+        "n": 66,
+        "alertas": 0
+      },
+      "mota": {
+        "n": 45,
+        "alertas": 1
+      },
+      "plaga": {
+        "n": 119,
+        "alertas": 119
+      },
+      "grande": {
+        "n": 22,
+        "alertas": 0
+      },
+      "luz": {
+        "n": 48,
+        "alertas": 0
+      }
+    }
+  },
+  "ms_por_disparo": {
+    "v1": 2.3,
+    "v2_rafaga_6_fotos": 15.1
+  },
+  "calentamiento": {
+    "1": 0.0,
+    "2": 0.0,
+    "3": 0.0,
+    "4": 0.0,
+    "5": 1.0,
+    "6": 1.0,
+    "7": 1.0,
+    "8": 1.0,
+    "9": 1.0,
+    "10": 1.0
+  },
+  "semilla": 2026,
+  "disparos_por_config": 300
+}

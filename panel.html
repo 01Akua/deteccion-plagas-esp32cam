@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panel de actividad de plagas</title>
+<style>
+  :root { --fondo:#0f1419; --tarjeta:#18202a; --borde:#263341; --texto:#e6edf3; --tenue:#8b98a5;
+          --azul:#4aa3ff; --verde:#3fb950; --rojo:#f85149; --ambar:#d29922; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--fondo); color:var(--texto); font:14px/1.45 -apple-system,Segoe UI,Roboto,sans-serif; }
+  header { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 24px;
+           border-bottom:1px solid var(--borde); flex-wrap:wrap; }
+  h1 { font-size:18px; margin:0; font-weight:600; }
+  h1 small { color:var(--tenue); font-weight:400; margin-left:8px; }
+  .estado { display:flex; align-items:center; gap:8px; color:var(--tenue); }
+  .punto { width:10px; height:10px; border-radius:50%; background:var(--tenue); }
+  .punto.on { background:var(--verde); box-shadow:0 0 8px var(--verde); }
+  .punto.off { background:var(--rojo); }
+  main { padding:20px 24px; display:grid; gap:16px; grid-template-columns:repeat(12,1fr); max-width:1400px; margin:0 auto; }
+  .tarjeta { background:var(--tarjeta); border:1px solid var(--borde); border-radius:10px; padding:14px 16px; }
+  .tarjeta h2 { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--tenue); margin:0 0 10px; font-weight:600; }
+  .kpi { grid-column:span 3; }
+  .kpi .valor { font-size:30px; font-weight:600; }
+  .kpi .sub { color:var(--tenue); font-size:12px; }
+  .visor { grid-column:span 8; }
+  .lateral { grid-column:span 4; display:flex; flex-direction:column; gap:16px; }
+  .historial, .eventos { grid-column:span 6; }
+  .marco { position:relative; width:100%; aspect-ratio:4/3; background:#000; border-radius:8px; overflow:hidden; }
+  .marco img { width:100%; height:100%; object-fit:contain; display:block; }
+  .caja { position:absolute; border:2px solid var(--rojo); box-shadow:0 0 0 1px rgba(0,0,0,.4); pointer-events:none; }
+  .caja span { position:absolute; top:-18px; left:-2px; background:var(--rojo); color:#fff; font-size:10px; padding:1px 4px; white-space:nowrap; }
+  .meta { display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-top:10px; color:var(--tenue); font-size:13px; }
+  .etiqueta { display:inline-block; padding:2px 8px; border-radius:99px; font-size:12px; font-weight:600; }
+  .e-alerta { background:rgba(248,81,73,.15); color:var(--rojo); }
+  .e-ok { background:rgba(63,185,80,.15); color:var(--verde); }
+  .e-calentando { background:rgba(210,153,34,.15); color:var(--ambar); }
+  .tira { display:grid; grid-template-columns:repeat(6,1fr); gap:6px; margin-top:12px; }
+  .tira img { width:100%; border-radius:4px; border:2px solid transparent; cursor:pointer; opacity:.7; display:block; }
+  .tira img.sel { border-color:var(--azul); opacity:1; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { text-align:left; color:var(--tenue); font-weight:500; padding:6px 8px; border-bottom:1px solid var(--borde); }
+  td { padding:7px 8px; border-bottom:1px solid var(--borde); vertical-align:middle; }
+  tr.click { cursor:pointer; } tr.click:hover { background:rgba(74,163,255,.08); } tr.sel { background:rgba(74,163,255,.15); }
+  td img { height:34px; border-radius:3px; display:block; }
+  .vacio { color:var(--tenue); padding:14px 4px; }
+  .zona { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--borde); }
+  .zona:last-child { border:0; }
+  .boton.grande { padding:9px 18px; font-size:14px; font-weight:600; }
+  .boton:disabled { opacity:.5; cursor:wait; }
+  .boton { background:transparent; color:var(--azul); border:1px solid var(--azul); border-radius:6px; padding:4px 10px; cursor:pointer; font-size:12px; }
+  @media (max-width:900px) { .kpi{grid-column:span 6;} .visor,.lateral,.historial,.eventos{grid-column:span 12;} }
+</style>
+</head>
+<body>
+<header>
+  <h1>Detección de actividad de plagas <small>panel del servidor</small></h1>
+  <div class="estado"><span id="punto" class="punto"></span><span id="estadoNodo">Esperando al nodo…</span></div>
+</header>
+<main>
+  <div class="tarjeta kpi"><h2>Ráfagas recibidas</h2><div class="valor" id="kRafagas">0</div><div class="sub" id="kFotos">0 fotos</div></div>
+  <div class="tarjeta kpi"><h2>Alertas</h2><div class="valor" id="kAlertas">0</div><div class="sub">posible actividad</div></div>
+  <div class="tarjeta kpi"><h2>Última ráfaga</h2><div class="valor" id="kUltima">—</div><div class="sub" id="kHace">sin datos</div></div>
+  <div class="tarjeta kpi"><h2>Parámetros</h2><div class="valor" id="kArea">—</div><div class="sub" id="kFondo"></div></div>
+
+  <div class="tarjeta" style="grid-column:span 12">
+    <h2>Control del nodo</h2>
+    <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:center">
+      <button class="boton grande" id="btnFoto" onclick="tomarFoto()">Tomar foto ahora</button>
+      <label><input type="checkbox" id="auto" onchange="guardarConfig()"> Disparo automático por movimiento</label>
+      <label>Sensibilidad (celdas que deben cambiar): <input type="number" id="celdas" min="1" max="2000" style="width:70px" onchange="guardarConfig()"></label>
+      <div style="flex:1;min-width:220px">
+        <div class="sub" id="movTxt" style="color:var(--tenue);font-size:12px">Movimiento actual: —</div>
+        <div style="background:#0b0f14;border-radius:4px;height:10px;position:relative;overflow:hidden"><div id="movBarra" style="height:100%;width:0;background:var(--azul)"></div><div id="movUmbral" style="position:absolute;top:0;bottom:0;width:2px;background:var(--rojo)"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tarjeta visor">
+    <h2>Imagen <span id="tituloVisor" style="text-transform:none;letter-spacing:0"></span></h2>
+    <div class="marco" id="marco"><img id="foto" alt=""></div>
+    <div class="tira" id="tira"></div>
+    <div class="meta"><span id="metaIzq"></span><span><label><input type="checkbox" id="seguir" checked> seguir la última ráfaga</label></span></div>
+  </div>
+
+  <div class="lateral">
+    <div class="tarjeta"><h2>Zonas</h2><div id="zonas"><div class="vacio">Sin zonas todavía</div></div></div>
+    <div class="tarjeta"><h2>Detecciones de la ráfaga</h2><div id="detecciones"><div class="vacio">—</div></div></div>
+  </div>
+
+  <div class="tarjeta historial"><h2>Historial de ráfagas (en memoria)</h2><div id="historial"></div></div>
+  <div class="tarjeta eventos"><h2>Eventos registrados (alertas)</h2><div id="eventos"></div></div>
+</main>
+<script>
+let estado = null, selId = null, selFoto = null;
+const $ = id => document.getElementById(id);
+const hora = t => t ? t.slice(11, 19) : '—';
+function tag(b) {
+  if (b.estado === 'calentando') return '<span class="etiqueta e-calentando">calentando</span>';
+  return b.alerta ? '<span class="etiqueta e-alerta">alerta</span>' : '<span class="etiqueta e-ok">sin alerta</span>';
+}
+function seleccionada() {
+  if (!estado || !estado.rafagas.length) return null;
+  if ($('seguir').checked || selId === null) return estado.rafagas[0];
+  return estado.rafagas.find(r => r.id === selId) || estado.rafagas[0];
+}
+function pintar() {
+  if (!estado) return;
+  const e = estado, r = seleccionada();
+  $('kRafagas').textContent = e.totales.rafagas; $('kFotos').textContent = e.totales.fotos + ' fotos';
+  $('kAlertas').textContent = e.totales.alertas;
+  $('kArea').textContent = e.parametros.area_min + '–' + e.parametros.area_max + ' px';
+  $('kFondo').textContent = 'área válida · ' + e.parametros.min_frames_fondo + ' cuadros de calentamiento';
+  const sc = e.nodo.segundos_desde_consulta, enLinea = sc !== null && sc < 10;
+  $('punto').className = 'punto ' + (sc === null ? '' : (enLinea ? 'on' : 'off'));
+  $('estadoNodo').textContent = sc === null ? 'Esperando al nodo…'
+    : (enLinea ? 'Nodo conectado' : 'Nodo sin señal (hace ' + dur(sc) + ')')
+      + (e.segundos_desde_ultima === null ? '' : ' · última ráfaga hace ' + dur(e.segundos_desde_ultima));
+  const n = e.nodo, activo = document.activeElement;
+  if (activo !== $('celdas')) $('celdas').value = n.celdas;
+  if (activo !== $('auto')) $('auto').checked = n.auto;
+  $('btnFoto').disabled = !enLinea || n.disparo_pendiente;
+  $('btnFoto').textContent = n.disparo_pendiente ? 'Esperando al nodo…' : 'Tomar foto ahora';
+  $('movTxt').textContent = enLinea ? `Movimiento actual: ${n.mov} celdas (umbral ${n.celdas}) · fondo: ${n.anillo}/5 fotos` : 'Movimiento actual: —';
+  const maxBarra = Math.max(n.celdas * 2, 100);
+  $('movBarra').style.width = Math.min(100, n.mov / maxBarra * 100) + '%';
+  $('movBarra').style.background = n.mov >= n.celdas ? 'var(--rojo)' : 'var(--azul)';
+  $('movUmbral').style.left = (n.celdas / maxBarra * 100) + '%';
+  $('kUltima').textContent = r ? hora(e.rafagas[0].hora) : '—';
+  $('kHace').textContent = e.segundos_desde_ultima === null ? 'sin datos' : 'hace ' + dur(e.segundos_desde_ultima);
+
+  $('zonas').innerHTML = Object.keys(e.zonas).length ? Object.entries(e.zonas).map(([z, v]) =>
+    `<div class="zona"><span>${z}</span><span>${v.frames_vistos} cuadros · ${v.listo ? '<span class="etiqueta e-ok">lista</span>' : '<span class="etiqueta e-calentando">calentando</span>'}</span></div>`).join('')
+    : '<div class="vacio">Sin zonas todavía</div>';
+
+  if (r) {
+    if (selFoto === null || selFoto >= r.n_fotos || $('seguir').checked) selFoto = r.n_fotos - 1;
+    const url = `/frames/${r.id}/${selFoto}.jpg`;
+    if ($('foto').dataset.u !== url) { $('foto').src = url; $('foto').dataset.u = url; }
+    $('tituloVisor').textContent = `· ${r.zona} · ráfaga #${r.id} · foto ${selFoto + 1}/${r.n_fotos}`;
+    document.querySelectorAll('.caja').forEach(c => c.remove());
+    if (selFoto === r.n_fotos - 1) r.eventos.forEach((ev, i) => {
+      const [x, y, w, h] = ev.bbox, d = document.createElement('div');
+      d.className = 'caja'; d.style.cssText = `left:${x / r.ancho * 100}%;top:${y / r.alto * 100}%;width:${w / r.ancho * 100}%;height:${h / r.alto * 100}%`;
+      d.innerHTML = `<span>${ev.area_px} px</span>`; $('marco').appendChild(d);
+    });
+    $('tira').innerHTML = Array.from({length: r.n_fotos}, (_, i) =>
+      `<img src="/frames/${r.id}/${i}.jpg" class="${i === selFoto ? 'sel' : ''}" onclick="elegirFoto(${i})">`).join('');
+    $('metaIzq').innerHTML = `${hora(r.hora)} · ${r.origen || ''} · ${tag(r)} · la última foto es la que se evalúa`;
+    $('detecciones').innerHTML = r.eventos.length ? '<table><tr><th>#</th><th>Área</th><th>Posición</th></tr>' +
+      r.eventos.map((ev, i) => `<tr><td>${i + 1}</td><td>${ev.area_px} px</td><td>${ev.bbox[0]}, ${ev.bbox[1]}</td></tr>`).join('') + '</table>'
+      : `<div class="vacio">${r.estado === 'calentando' ? 'La zona aún está aprendiendo el fondo.' : 'Sin objetos dentro del rango de tamaño.'}</div>`;
+  } else {
+    $('metaIzq').textContent = 'Aún no llegan imágenes. Dispare el nodo (botón BOOT o comando FOTO).';
+  }
+
+  $('historial').innerHTML = e.rafagas.length ? '<table><tr><th>Hora</th><th>Zona</th><th>Fotos</th><th>Origen</th><th>Resultado</th><th>Objetos</th></tr>' +
+    e.rafagas.map(b => `<tr class="click ${r && b.id === r.id ? 'sel' : ''}" onclick="elegirRafaga(${b.id})"><td>${hora(b.hora)}</td><td>${b.zona}</td><td>${b.n_fotos}</td><td>${b.origen || ''}</td><td>${tag(b)}</td><td>${b.eventos.length}</td></tr>`).join('') + '</table>'
+    : '<div class="vacio">Sin ráfagas todavía</div>';
+  $('eventos').innerHTML = e.eventos.length ? '<table><tr><th>Fecha</th><th>Zona</th><th>Área máx.</th><th>Obj.</th><th>Imagen</th></tr>' +
+    e.eventos.map(v => `<tr><td>${v.timestamp.slice(5)}</td><td>${v.zona}</td><td>${v.area_px} px</td><td>${v.objetos}</td><td><a href="/snapshots/${v.snapshot}" target="_blank"><img src="/snapshots/${v.snapshot}"></a></td></tr>`).join('') + '</table>'
+    : '<div class="vacio">Sin alertas registradas</div>';
+}
+async function tomarFoto() { $('btnFoto').disabled = true; await fetch('/api/disparar', {method: 'POST'}); actualizar(); }
+async function guardarConfig() { await fetch('/api/config', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({auto: $('auto').checked, celdas: +$('celdas').value})}); }
+function dur(s) { return s < 90 ? Math.round(s) + ' s' : Math.round(s / 60) + ' min'; }
+function elegirRafaga(id) { selId = id; selFoto = null; $('seguir').checked = false; pintar(); }
+function elegirFoto(i) { selFoto = i; $('seguir').checked = false; pintar(); }
+$('seguir').addEventListener('change', () => { if ($('seguir').checked) { selId = null; selFoto = null; } pintar(); });
+async function actualizar() {
+  try { estado = await (await fetch('/api/estado')).json(); pintar(); }
+  catch (_) { $('estadoNodo').textContent = 'Sin conexión con el servidor'; $('punto').className = 'punto off'; }
+}
+actualizar(); setInterval(actualizar, 2000);
+</script>
+</body>
+</html>
