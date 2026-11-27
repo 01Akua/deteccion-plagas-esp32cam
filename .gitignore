@@ -21,3 +21,6 @@ Avances_Software_*.docx
 
 # Credenciales (el WiFi se guarda en la placa, nunca en el codigo)
 secrets.h
+
+# Fotos tomadas por cable en pruebas locales
+fotos_usb/

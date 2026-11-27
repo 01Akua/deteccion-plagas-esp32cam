@@ -15,6 +15,7 @@ Proyecto de Sistemas Digitales y Ensambladores. Un nodo con cámara (GOOUUU ESP3
 | `panel.html` | Panel web: ráfagas, detecciones, control del nodo |
 | `firmware/nodo_plagas/nodo_plagas.ino` | Firmware de la cámara (Arduino, ESP32-S3) |
 | `firmware/nodo_plagas/configurar_nodo.py` | Guarda WiFi y servidor en la placa por USB |
+| `firmware/prueba_camara_usb/` | Prueba de la cámara solo por cable USB: toma una foto cuando se pulsa Enter (`foto_usb.py`) |
 | `escenas.py`, `evaluar_deteccion.py` | Escenas sintéticas y evaluación v1 vs v2 |
 | `test_servidor.py` | Pruebas automáticas del servidor |
 | `wokwi/` | Simulación del circuito con PIR |
